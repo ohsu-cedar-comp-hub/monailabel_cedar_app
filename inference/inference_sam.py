@@ -11,6 +11,8 @@
 import random
 from copy import deepcopy
 import json
+
+import matplotlib.pyplot as plt
 import monai
 import numpy as np
 import os
@@ -75,11 +77,12 @@ parser.add_argument("--save_infer", action="store_true", help="save inference re
 parser.add_argument("--patch_embed_3d", action="store_true", help="using 3d patch embedding layer")
 parser.add_argument("--use_all_files_for_val", action="store_true", help="used in validating original SAM")
 parser.add_argument("--enable_auto_branch", action="store_true", help="enable automatic prediction")
+parser.add_argument("--seed", default=0, type=int, help="seed")
 
 
 def main():
     args = parser.parse_args()
-    set_determinism(seed=42)
+    set_determinism(seed=args.seed)
     if args.distributed:
         args.ngpus_per_node = torch.cuda.device_count()
         print("Found total gpus", args.ngpus_per_node)
@@ -158,6 +161,9 @@ def main_worker(gpu, args):
 
     if args.save_infer:
         from PIL import Image
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
 
     model.eval()
     dice_ = torch.zeros([1, args.out_channels - 1], device=device)
@@ -201,18 +207,44 @@ def main_worker(gpu, args):
             count_ += count
 
             if args.save_infer:
+                scale_factor = max(data[0]["original_size"]) / args.sam_image_size
+                point_coords_list = (data[0]["point_coords"] * scale_factor).cpu().numpy().tolist()
+                point_labels_list = (data[0]["point_labels"]).cpu().numpy().tolist()
 
                 save_img = inputs_l.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+                plt.figure(figsize=(5,5))
+                plt.imshow(save_img)
+                for i, (point_coords_, point_labels_) in enumerate(zip(point_coords_list,point_labels_list)):
+                    for p, l in zip(point_coords_, point_labels_):
+                        if i == 0 or l == -1:
+                            continue
+                        y, x = p
+                        if l == 1:
+                            plt.gca().scatter(x, y,  c='r', s=200, marker="*")
+                        if l == 0:
+                            plt.gca().scatter(x, y, c='g', s=200, marker="*")
+                        plt.gca().annotate(f"label-{i}", (x, y), xytext=(0, 10),  # 10 points vertical offset.
+                                    textcoords='offset points', ha='center', va='bottom',
+                                     bbox=dict(boxstyle="round", fc="0.8"))
+                plt.axis("off")
+                plt.savefig(os.path.join(args.logdir, file_name + "_img.png"), bbox_inches="tight", pad_inches=0.0)
+                # plt.figure().clear()
+                plt.close("all")
+                plt.cla()
+                plt.clf()
 
-                pred_mask = torch.argmax(logit.sigmoid(), dim=0).squeeze().cpu().numpy().astype(np.uint8)
+                pred = logit.sigmoid()
+                pred = pred * torch.cat([torch.zeros(1, *pred.shape[-3:]), torch.ones(pred.shape[0]-1, *pred.shape[-3:])], dim=0).to(device)
+                pred = (pred>0.5).float() * pred
+                pred_mask = torch.argmax(pred, dim=0).squeeze().cpu().numpy().astype(np.uint8)
                 gt_mask = labels_l.squeeze().cpu().numpy().astype(np.uint8)
 
                 save_np = np.concatenate([gt_mask, np.zeros((gt_mask.shape[0], 5), np.uint8), pred_mask], axis=1)
                 save_file = Image.fromarray(save_np)
                 save_file.save(os.path.join(args.logdir, file_name+"_compare_seg.png"))
 
-                save_file = Image.fromarray(save_img)
-                save_file.save(os.path.join(args.logdir, file_name + "_img.png"))
+                # save_file = Image.fromarray(save_img)
+                # save_file.save(os.path.join(args.logdir, file_name + "_img.png"))
 
     if args.distributed:
         dist.barrier()
@@ -220,7 +252,7 @@ def main_worker(gpu, args):
         dist.all_reduce(count_, op=torch.distributed.ReduceOp.SUM)
 
     if args.rank == 0:
-        f = open(os.path.join(args.logdir, 'metric.json'), 'w')
+        f = open(os.path.join(args.logdir, f'metric_pp{args.points_val_pos}_np{args.points_val_neg}.json'), 'w')
         metric = {}
         mean_dice_batch = dice_ / count_
 
@@ -287,6 +319,13 @@ def generate_point_prompt(batch_labels_, args, points_pos=None, points_neg=None,
     device = batch_labels_.device
     for i in range(b):
         plabels = batch_labels_[i, ...]
+        if torch.sum(plabels) == 0:
+            # bk prompt
+            n_placeholder = Np + Nn
+            _point.append(torch.cat([torch.zeros((1, 2), device=device)] * n_placeholder, dim=0))
+            _point_label.append(torch.tensor([-1] * n_placeholder).to(device))
+            continue
+
         nlabels = (plabels == 0.0).float()
         if previous_pred is not None:
             ppred = previous_pred[i, 0, ...]
@@ -323,6 +362,5 @@ def generate_point_prompt(batch_labels_, args, points_pos=None, points_neg=None,
     point_coords = apply_coords_torch(point, max(h, w), args.sam_image_size)
 
     return point_coords, point_label
-
 if __name__ == "__main__":
     main()
