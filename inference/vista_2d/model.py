@@ -28,6 +28,8 @@ from vista_2d.vista_prompt_encoder import VistaPromptEncoder
 from segment_anything.modeling import TwoWayTransformer
 from segment_anything.modeling.prompt_encoder import PromptEncoder
 from lora_wrapper import LoRA
+NINF_VALUE = -9999
+PINF_VALUE = 9999
 
 class Vista2D(nn.Module):
     mask_threshold: float = 0.5
@@ -173,11 +175,20 @@ class Vista2D(nn.Module):
         outputs = []
         for image_record, curr_embedding in zip(batched_input, image_embeddings):
             if "point_coords" in image_record:
-                points = (image_record["point_coords"], image_record["point_labels"])
-                # raise NotImplementedError
+                # remove points that used for padding purposes (point_label = -1)
+                mapping_index = ((image_record["point_labels"] != -1).sum(1) > 0).to(torch.bool)
+                if mapping_index.any():
+                    point_coords = image_record["point_coords"][mapping_index]
+                    point_labels = image_record["point_labels"][mapping_index]
+                else:
+                    point_coords, point_labels = None, None
+                points = (point_coords, point_labels)
             else:
                 points = None
+                point_coords, point_labels = None, None
             if self.enable_auto_branch:
+                if points is not None:
+                    raise NotImplementedError
                 sparse_embeddings, dense_embeddings = self.prompt_encoder(
                     points=points,
                     boxes=image_record.get("boxes", None),
@@ -185,18 +196,31 @@ class Vista2D(nn.Module):
                     class_labels=image_record.get("labels", None)
                 )
             else:
-                sparse_embeddings, dense_embeddings = self.prompt_encoder(
-                    points=points,
-                    boxes=image_record.get("boxes", None),
-                    masks=image_record.get("mask_inputs", None),
+                bs = image_record["point_coords"].shape[0]
+                image_size = (self.image_encoder.img_size // 4, self.image_encoder.img_size // 4)
+                low_res_masks = NINF_VALUE + torch.zeros([bs, 1, *image_size], device=self.device,
+                                                         dtype=torch.float16)
+                iou_predictions = 0
+                if point_coords is not None:
+                    sparse_embeddings, dense_embeddings = self.prompt_encoder(
+                        points=points,
+                        boxes=image_record.get("boxes", None),
+                        masks=image_record.get("mask_inputs", None),
+                    )
+                else:
+                    sparse_embeddings, dense_embeddings = None, None
+            if sparse_embeddings is not None:
+                low_res_masks_, iou_predictions = self.mask_decoder(
+                    image_embeddings=curr_embedding.unsqueeze(0),
+                    image_pe=self.prompt_encoder.get_dense_pe(),
+                    sparse_prompt_embeddings=sparse_embeddings,
+                    dense_prompt_embeddings=dense_embeddings,
+                    multimask_output=multimask_output,
                 )
-            low_res_masks, iou_predictions = self.mask_decoder(
-                image_embeddings=curr_embedding.unsqueeze(0),
-                image_pe=self.prompt_encoder.get_dense_pe(),
-                sparse_prompt_embeddings=sparse_embeddings,
-                dense_prompt_embeddings=dense_embeddings,
-                multimask_output=multimask_output,
-            )
+            if point_coords is not None:
+                low_res_masks[mapping_index] = low_res_masks_
+            else:
+                low_res_masks = low_res_masks_
             if is_train:
                 outputs.append(
                     {
@@ -207,7 +231,6 @@ class Vista2D(nn.Module):
             else:
                 high_res_masks = self.postprocess_masks(
                     low_res_masks,
-                    # input_size=image_record["image"].shape[-2:],
                     original_size=image_record["original_size"],
                 )
                 masks = high_res_masks > self.mask_threshold

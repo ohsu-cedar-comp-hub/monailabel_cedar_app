@@ -1,4 +1,4 @@
-monai
+monai==1.2.0
 nibabel
 fvcore
 tqdm
@@ -12,9 +12,9 @@ scipy
 scikit-learn
 scikit-image
 ptflops
-pillow
+pillow==10.0.0
 timm
-nnunet
+opencv-python==4.8.0.74
 h5py
 torch
 torchvision==0.15.1
