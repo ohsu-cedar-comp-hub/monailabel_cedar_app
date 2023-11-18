@@ -20,7 +20,7 @@ python python inference_sam.py
 # Run Sliding Window Inference (Point Prompt)
 
 ```bash 
-python python sliding_window_inference_sam.py 
+python sliding_window_inference_sam.py 
 --data_dir "Path to dataset root"
 --json_list "Path to json data split file"
 --ckpt "Path to pretrained checkpoint"
