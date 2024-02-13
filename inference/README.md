@@ -35,6 +35,7 @@ python sliding_window_inference_sam.py
 --logdir "Path to log dir"
 --out_channels 2
 --save_infer
+--infer_only # This flag will enable inference only, so you don't have to provide GT.
 --label_prompt --enable_auto_branch 
 
 ```

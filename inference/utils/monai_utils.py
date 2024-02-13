@@ -221,10 +221,16 @@ def sliding_window_inference(
         ]
         if sw_batch_size > 1:
             win_data = torch.cat([inputs[win_slice] for win_slice in unravel_slice]).to(sw_device)
-            win_data_label = torch.cat([kwargs["labels"][win_slice] for win_slice in unravel_slice]).to(sw_device)
+            if kwargs["labels"] is not None:
+                win_data_label = torch.cat([kwargs["labels"][win_slice] for win_slice in unravel_slice]).to(sw_device)
+            else:
+                win_data_label = None
         else:
             win_data = torch.squeeze(inputs[unravel_slice[0]].to(sw_device))
-            win_data_label = torch.squeeze(kwargs["labels"][unravel_slice[0]].to(sw_device))
+            if kwargs["labels"] is not None:
+                win_data_label = torch.squeeze(kwargs["labels"][unravel_slice[0]].to(sw_device))
+            else:
+                win_data_label = None
 
         data, _, _ = kwargs["val_point_sampler"](win_data.half(), win_data_label)
 

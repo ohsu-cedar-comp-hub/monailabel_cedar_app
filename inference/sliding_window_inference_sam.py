@@ -82,6 +82,8 @@ parser.add_argument("--patch_embed_3d", action="store_true", help="using 3d patc
 parser.add_argument("--use_all_files_for_val", action="store_true", help="used in validating original SAM")
 parser.add_argument("--enable_auto_branch", action="store_true", help="enable automatic prediction")
 parser.add_argument("--seed", default=0, type=int, help="seed")
+parser.add_argument("--infer_only", action="store_true", help="only conduct inference and skip metric calculation")
+
 
 
 def main():
@@ -134,10 +136,14 @@ def main_worker(gpu, args):
         data=test_files, shuffle=False, num_partitions=world_size, even_divisible=False
     )[args.rank]
 
+    if args.infer_only:
+        keys = ["image"]
+    else:
+        keys = ["image", "label"]
     val_transforms = Compose([
-        LoadImaged(keys=["image", "label"], reader=PILReader, image_only=True),
-        EnsureChannelFirstd(keys=["image", "label"]),
-        CastToTyped(keys=["image", "label"], dtype=[torch.uint8, torch.uint8]),
+        LoadImaged(keys=keys, reader=PILReader, image_only=True),
+        EnsureChannelFirstd(keys=keys),
+        CastToTyped(keys=keys, dtype=[torch.uint8] if args.infer_only else [torch.uint8, torch.uint8]),
     ])
 
     test_ds = monai.data.Dataset(
@@ -167,12 +173,15 @@ def main_worker(gpu, args):
     count_ = torch.zeros([1, args.out_channels - 1], device=device)
     with torch.no_grad():
         for idx, batch_data in enumerate(test_loader):
-            # only take 1 batch
-            labels_l = batch_data["label"].as_subclass(torch.Tensor)[:, :1, ...]
-            # remove some rare labels (16, 17, 18, 19)
-            mapping_index = labels_l >= args.out_channels
-            if mapping_index.any():
-                labels_l[mapping_index] = 0
+            if args.infer_only:
+                labels_l = None
+            else:
+                # only take 1 batch
+                labels_l = batch_data["label"].as_subclass(torch.Tensor)[:, :1, ...]
+                # remove some rare labels (16, 17, 18, 19)
+                mapping_index = labels_l >= args.out_channels
+                if mapping_index.any():
+                    labels_l[mapping_index] = 0
 
             file_name = batch_data["image"].meta['filename_or_obj'][0].split("/")[-1].split(".")[0]
 
@@ -190,7 +199,7 @@ def main_worker(gpu, args):
                     overlap=0.25,
                     sw_device=device,
                     device=_device_out,
-                    labels=labels_l.to(_device_in),
+                    labels=labels_l.to(_device_in) if labels_l is not None else labels_l,
                     progress=True,
                     val_point_sampler=partial(prepare_sam_test_input,
                                               args=args
@@ -199,19 +208,20 @@ def main_worker(gpu, args):
 
             y_pred = torch.stack(post_pred(decollate_batch(val_outputs)))
 
-            dice = compute_dice(
-                y_pred=y_pred,
-                y=labels_l,
-                num_classes=args.out_channels,
-                include_background=False
-            )
-            print(f"Rank: {args.rank}, Done[{idx + 1}/{len(test_loader)}], {file_name}")
-            print(dice)
-            nan_idx = torch.isnan(dice)
-            dice_ += torch.nan_to_num(dice).to(device)
-            count = torch.ones_like(dice).to(device)
-            count[nan_idx] = 0
-            count_ += count
+            if not args.infer_only:
+                dice = compute_dice(
+                    y_pred=y_pred,
+                    y=labels_l,
+                    num_classes=args.out_channels,
+                    include_background=False
+                )
+                print(f"Rank: {args.rank}, Done[{idx + 1}/{len(test_loader)}], {file_name}")
+                print(dice)
+                nan_idx = torch.isnan(dice)
+                dice_ += torch.nan_to_num(dice).to(device)
+                count = torch.ones_like(dice).to(device)
+                count[nan_idx] = 0
+                count_ += count
 
             if args.save_infer:
                 val_outputs = val_outputs * torch.cat([torch.zeros(1, 1, *val_outputs.shape[-2:]),
@@ -245,16 +255,21 @@ def main_worker(gpu, args):
 def prepare_sam_test_input(inputs, labels, args, previous_pred=None):
     unique_labels = torch.tensor([i for i in range(0, args.out_channels)]).cuda(args.rank)
 
-    # preprocess make the size of lable same as high_res_logit
-    batch_labels = torch.stack([labels == unique_labels[i] for i in range(len(unique_labels))], dim=0).float()
+    if labels is not None:
+        # preprocess make the size of lable same as high_res_logit
+        batch_labels = torch.stack([labels == unique_labels[i] for i in range(len(unique_labels))], dim=0).float()
+    else:
+        batch_labels = torch.zeros(1)
 
-    prepared_input = [{"image": inputs, "original_size": tuple(labels.shape)}]
+    prepared_input = [{"image": inputs, "original_size": tuple(inputs.shape)[1:]}]
     if args.label_prompt:
         labels_prompt = unique_labels.unsqueeze(-1)
         prepared_input[0].update(
             {"labels": labels_prompt})
 
     if args.point_prompt:
+        # need labels to simulate user's click when doing interactive inference
+        assert labels is not None
         point_coords, point_labels = generate_point_prompt(batch_labels, args, points_pos=args.points_val_pos,
                                                            points_neg=args.points_val_neg, previous_pred=previous_pred)
         prepared_input[0].update(
