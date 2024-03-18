@@ -36,6 +36,8 @@ python sliding_window_inference_sam.py
 --out_channels 2
 --save_infer
 --infer_only # This flag will enable inference only, so you don't have to provide GT.
---label_prompt --enable_auto_branch 
+--label_prompt 
+--enable_auto_branch 
+--window_size "the sliding window size(e.g., 512, 1024, 2048 depending on the checkpoint)"
 
 ```

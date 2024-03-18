@@ -83,6 +83,8 @@ parser.add_argument("--use_all_files_for_val", action="store_true", help="used i
 parser.add_argument("--enable_auto_branch", action="store_true", help="enable automatic prediction")
 parser.add_argument("--seed", default=0, type=int, help="seed")
 parser.add_argument("--infer_only", action="store_true", help="only conduct inference and skip metric calculation")
+parser.add_argument("--window_size", type=int, help="window size for sliding window inference")
+
 
 
 
@@ -192,7 +194,7 @@ def main_worker(gpu, args):
                 torch.cuda.empty_cache()
                 val_outputs = sliding_window_inference(
                     inputs=batch_data["image"].as_subclass(torch.Tensor).half().to(_device_in),
-                    roi_size=[512, 512],
+                    roi_size=[args.window_size, args.window_size],
                     sw_batch_size=1,
                     predictor=model,
                     mode="gaussian",
