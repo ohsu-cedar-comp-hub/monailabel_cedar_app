@@ -180,7 +180,7 @@ def main_worker(gpu, args):
             else:
                 # only take 1 batch
                 labels_l = batch_data["label"].as_subclass(torch.Tensor)[:, :1, ...]
-                # remove some rare labels (16, 17, 18, 19)
+                # remove some rare labels (16, 17, 18, 19) if needed
                 mapping_index = labels_l >= args.out_channels
                 if mapping_index.any():
                     labels_l[mapping_index] = 0

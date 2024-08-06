@@ -25,7 +25,7 @@ python python inference_sam.py
 
 ```
 
-# Run Sliding Window Inference (Automatic fg/bk prediction)
+# Run Sliding Window Inference
 
 ```bash 
 python sliding_window_inference_sam.py 
@@ -33,7 +33,8 @@ python sliding_window_inference_sam.py
 --json_list "Path to json data split file"
 --ckpt "Path to pretrained checkpoint"
 --logdir "Path to log dir"
---out_channels 2
+--out_channels  2 # for background/ foreground prediction
+# --out_channels  20 # for predicting all classes
 --save_infer
 --infer_only # This flag will enable inference only, so you don't have to provide GT.
 --label_prompt 
