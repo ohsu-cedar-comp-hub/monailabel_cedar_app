@@ -1,0 +1,15 @@
+config:
+  description: "VISTA 2D segmentation pipeline"
+  arguments:
+    - name: "--workers"
+      value: 1
+    - name: "--out_channels"
+      value: 20
+    # For action argument, just list to indicate it is needed (i.e. true)
+    # Note listed will use the default value (false)
+    - name: "--label_prompt"
+    - name: "--logdir"
+      value: "/Users/wug/temp"
+    - name: "--save_infer"
+    - name: "--enable_auto_branch"
+    - name: "--infer_only"
