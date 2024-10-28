@@ -12,6 +12,10 @@ config:
       default: 0
       type: int
       help: "node rank for distributed training"
+    - name: "--gpu"
+      default: 0
+      type: int
+      help: "cuda device index for GPU"
     - name: "--dist-url"
       default: "tcp://127.0.0.1:23456"
       type: str

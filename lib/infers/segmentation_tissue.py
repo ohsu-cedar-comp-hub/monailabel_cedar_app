@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 # A flag to use mps under MacBook Pro -- added by GW
 # TODO: push it into the configuration
-use_mps = True
+use_mps = False
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'    
 
 # Technically we should use BasicInferTask. However, just to quickly set up the
@@ -317,7 +317,7 @@ class SegmentationTissueInferTask(InferTask):
     def build_dataloader(self,
                          src_image_dir: str,
                          src_image_file: str) -> monai.data.DataLoader:
-        logger.info('Processing the image file: {}{}'.format(src_image_dir, src_image_file))
+        logger.info('Processing the image file: {}/{}'.format(src_image_dir, src_image_file))
 
         src_image_path = Path(src_image_dir, src_image_file)
         test_files = [{'image': str(src_image_path)}]
@@ -374,6 +374,7 @@ class SegmentationTissueInferTask(InferTask):
             unique_labels = torch.tensor([i for i in range(0, args.out_channels)], device=torch.device('mps'))
         else:
             unique_labels = torch.tensor([i for i in range(0, args.out_channels)]).cuda(args.rank)
+            # unique_labels = torch.tensor([i for i in range(0, args.out_channels)], device=torch.device('cpu'))
 
         if labels is not None:
             # preprocess make the size of lable same as high_res_logit
@@ -399,3 +400,4 @@ class SegmentationTissueInferTask(InferTask):
             return prepared_input, batch_labels.unsqueeze(1).to(torch.device('mps')), unique_labels
         else:
             return prepared_input, batch_labels.unsqueeze(1).cuda(args.rank), unique_labels
+            # return prepared_input, batch_labels.unsqueeze(1).to(torch.device('cpu')), unique_labels
