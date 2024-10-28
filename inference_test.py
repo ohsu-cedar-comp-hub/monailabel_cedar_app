@@ -23,6 +23,10 @@ def run_test():
         'src_image_file': '004_3_B_(3)_5.ome.tif',
         # The actual annoation file will be saved into ../annotations.
         'annotation_dir': 'test_data/images/'
+        # 'src_image_dir': '/Users/wug/temp/images/',
+        # 'src_image_file': '2020_08_13__8670_48411.tif',
+        # # The actual annoation file will be saved into ../annotations.
+        # 'annotation_dir': '/Users/wug/temp/images/'
     }
 
     json_path, annoation_json = infer_task(request=request, callbacks=None)
