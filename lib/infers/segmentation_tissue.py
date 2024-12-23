@@ -83,6 +83,8 @@ class SegmentationTissueInferTask(InferTask):
         args = self._read_arg_values()
         logger.info('Customized arguments for the inferrer: {}'.format(args))
         self.args = parser.parse_args(args)
+        # In case out_channels is changed
+        self.configed_out_channels = self.args.out_channels
         
 
     def _config_args(self):
@@ -165,6 +167,13 @@ class SegmentationTissueInferTask(InferTask):
         annotation_dir = request.get('annotation_dir')
         if annotation_dir is None or len(annotation_dir) == 0:
             annotation_dir = src_image_dir
+        # For background and foreground segmentation
+        out_channels = request.get('out_channels')
+        if out_channels is not None:
+            self.args.out_channels = int(out_channels)
+        else:
+            self.args.out_channels = self.configed_out_channels # Use the configured out_channels
+
         test_loader = self.build_dataloader(src_image_dir, src_image_file)
         model = self.get_model()
         masked_image = self.infer(test_loader, model)
@@ -223,7 +232,8 @@ class SegmentationTissueInferTask(InferTask):
                     # Avoid to output empty content
                     # "name":"",
                     "classification":{
-                        "name": self.class_id_to_name_color[label][0],
+                        # Just a hack to use two channels for segmentation only
+                        "name": self.class_id_to_name_color[label][0] if self.args.out_channels > 2 else 'unclassified',
                         # Cannot extract number in QuPath. Therefore, move it
                         # to metadata as a hack
                         # "number": str(label),
@@ -233,7 +243,7 @@ class SegmentationTissueInferTask(InferTask):
                         # "ANNOTATION_DESCRIPTION": "",
                         "anno_style": "auto",
                         # Need to use string for JSON serialization
-                        'class_id': str(label)
+                        'class_id': str(label) if self.args.out_channels > 2 else '-1' # Use -1 as a flag for manual editing
                         }
                     }     
                 }
