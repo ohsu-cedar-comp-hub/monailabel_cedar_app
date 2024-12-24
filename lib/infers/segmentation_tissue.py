@@ -167,12 +167,22 @@ class SegmentationTissueInferTask(InferTask):
         annotation_dir = request.get('annotation_dir')
         if annotation_dir is None or len(annotation_dir) == 0:
             annotation_dir = src_image_dir
+
         # For background and foreground segmentation
         out_channels = request.get('out_channels')
-        if out_channels is not None:
-            self.args.out_channels = int(out_channels)
+        if out_channels is None: # Use the default
+            out_channels = self.configed_out_channels
         else:
-            self.args.out_channels = self.configed_out_channels # Use the configured out_channels
+            out_channels = int(out_channels) # Need to use int
+        if self.args.out_channels != out_channels: # Need to reset the out_channels
+            self.args.out_channels = out_channels
+            model_dir = os.path.dirname(self.path[0])
+            if out_channels == 2: # Need to use the segmentation only model
+                self.path = [os.path.join(model_dir, 'res1024_model_best_fgbg.pt')]
+            else:
+                self.path = [os.path.join(model_dir, '1024res_model_best_081624.pt')]
+            logger.info('Reset the model to {} for out_channels {}'.format(self.path, out_channels))
+            self.model = None # reset so that we can reload the model
 
         test_loader = self.build_dataloader(src_image_dir, src_image_file)
         model = self.get_model()
