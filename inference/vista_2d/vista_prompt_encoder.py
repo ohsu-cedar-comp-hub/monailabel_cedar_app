@@ -21,8 +21,8 @@ from torch import nn
 
 from typing import Any, Optional, Tuple, Type
 
-from segment_anything.modeling.common import LayerNorm2d
-from segment_anything.modeling.prompt_encoder import PromptEncoder
+from ..segment_anything.modeling.common import LayerNorm2d
+from ..segment_anything.modeling.prompt_encoder import PromptEncoder
 
 
 class VistaPromptEncoder(PromptEncoder):

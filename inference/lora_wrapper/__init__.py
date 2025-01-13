@@ -1,3 +1,3 @@
-from lora_wrapper.wrapper import LoRA
-from lora_wrapper.ckpt_utils import embedLoRA, extractLoRA, mergeLoRA
+from .wrapper import LoRA
+from .ckpt_utils import embedLoRA, extractLoRA, mergeLoRA
 

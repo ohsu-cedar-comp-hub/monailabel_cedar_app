@@ -22,12 +22,12 @@ from torch.nn import functional as F
 from typing import Any, Dict, List, Tuple
 from functools import partial
 
-from vista_2d.vista_image_encoder import VistaImageEncoderViT
-from segment_anything.modeling.mask_decoder import MaskDecoder
-from vista_2d.vista_prompt_encoder import VistaPromptEncoder
-from segment_anything.modeling import TwoWayTransformer
-from segment_anything.modeling.prompt_encoder import PromptEncoder
-from lora_wrapper import LoRA
+from .vista_image_encoder import VistaImageEncoderViT
+from ..segment_anything.modeling.mask_decoder import MaskDecoder
+from .vista_prompt_encoder import VistaPromptEncoder
+from ..segment_anything.modeling import TwoWayTransformer
+from ..segment_anything.modeling.prompt_encoder import PromptEncoder
+from ..lora_wrapper import LoRA
 NINF_VALUE = -9999
 PINF_VALUE = 9999
 
