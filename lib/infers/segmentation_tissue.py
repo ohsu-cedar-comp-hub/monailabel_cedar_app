@@ -12,11 +12,10 @@
 import argparse
 import copy
 from functools import partial
-import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Sequence, Union, Tuple, List, Mapping
+from typing import Any, Dict, Sequence, Union, Tuple, List
 
 import cv2
 import inference.vista_2d
@@ -28,6 +27,7 @@ import skimage
 from tifffile import TiffFile, imwrite
 import yaml
 import torch
+import pandas as pd
 
 from monailabel.interfaces.tasks.infer_v2 import InferTask, InferType
 from monailabel.tasks.infer.basic_infer import CallBackTypes
@@ -39,7 +39,7 @@ from monai.transforms import (
     EnsureType,
     CastToTyped,
 )
-from monai.data.image_reader import PILReader, ITKReader
+from monai.data.image_reader import PILReader
 from torch.cuda.amp import autocast
 from inference.utils.monai_utils import sliding_window_inference
 
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 # A flag to use mps under MacBook Pro -- added by GW
 # TODO: push it into the configuration
-use_mps = False
+use_mps = True
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'    
 
 # Technically we should use BasicInferTask. However, just to quickly set up the
@@ -63,7 +63,7 @@ class SegmentationTissueInferTask(InferTask):
     def __init__(
         self,
         path: Union[None, str, Sequence[str]],
-        class_id_to_name_color: Mapping[int, Tuple[str, List[int]]],
+        default_class_id_name_color_file: str, # make sure it is not None
         type: Union[str, InferType] = InferType.SEGMENTATION,
         labels: Union[str, None, Sequence[str], Dict[Any, Any]] = None,
         dimension: int = 2,
@@ -77,8 +77,10 @@ class SegmentationTissueInferTask(InferTask):
             description=description,
             config=config)
         self.path = [] if not path else [path] if isinstance(path, str) else path
+        self.model_dir = os.path.dirname(self.path[0])
         self.model = None
-        self.class_id_to_name_color = class_id_to_name_color
+        self.default_class_id_name_color_file = default_class_id_name_color_file
+        self.load_class_id_name_color(self.default_class_id_name_color_file)
         parser = self._config_args()
         args = self._read_arg_values()
         logger.info('Customized arguments for the inferrer: {}'.format(args))
@@ -176,14 +178,28 @@ class SegmentationTissueInferTask(InferTask):
             out_channels = int(out_channels) # Need to use int
         if self.args.out_channels != out_channels: # Need to reset the out_channels
             self.args.out_channels = out_channels
-            model_dir = os.path.dirname(self.path[0])
+
+        # In case the model is specified in the request
+        model_path = request.get('model_path')
+        if model_path is None:
             if out_channels == 2: # Need to use the segmentation only model
-                self.path = [os.path.join(model_dir, 'res1024_model_best_fgbg.pt')]
+                model_path = [os.path.join(self.model_dir, 'res1024_model_best_fgbg.pt')]
             else:
-                self.path = [os.path.join(model_dir, '1024res_model_best_081624.pt')]
+                model_path = [os.path.join(self.model_dir, '1024res_model_best_081624.pt')]
+        else:
+            model_path = [model_path]
+        if self.path != model_path:
+            self.path = model_path
             logger.info('Reset the model to {} for out_channels {}'.format(self.path, out_channels))
             self.model = None # reset so that we can reload the model
 
+        class_id_name_color_file = request.get('class_id_name_color_file')
+        if class_id_name_color_file is None:
+            class_id_name_color_file = self.default_class_id_name_color_file
+        if class_id_name_color_file != self.class_id_name_color_file:
+            logger.info('Loading class_id_name_color from {}'.format(class_id_name_color_file))
+            self.load_class_id_name_color(class_id_name_color_file)
+        
         test_loader = self.build_dataloader(src_image_dir, src_image_file)
         model = self.get_model()
         masked_image = self.infer(test_loader, model)
@@ -418,7 +434,8 @@ class SegmentationTissueInferTask(InferTask):
     def get_model(self) -> any:
         if self.model is not None:
             return self.model
-        model = inference.vista_2d.model.sam_model_registry[self.args.sam_base_model](checkpoint=None,
+        model = inference.vista_2d.model.sam_model_registry[self.args.sam_base_model](
+                                                    checkpoint=None,
                                                     image_size=self.args.sam_image_size,
                                                     encoder_in_chans=self.args.roi_z_iter * 3,
                                                     patch_embed_3d=self.args.patch_embed_3d,
@@ -477,3 +494,20 @@ class SegmentationTissueInferTask(InferTask):
         else:
             return prepared_input, batch_labels.unsqueeze(1).cuda(args.rank), unique_labels
             # return prepared_input, batch_labels.unsqueeze(1).to(torch.device('cpu')), unique_labels
+
+    def load_class_id_name_color(self, class_file: str):
+        self.class_id_name_color_file = class_file
+        if class_file is None:
+            self.class_id_to_name_color = None
+            return
+        class_df = pd.read_csv(class_file, sep='\t')
+        self.labels = dict(zip(class_df['class_name'], class_df['class_id']))
+        self.label_colors = dict(zip(class_df['class_name'], class_df['color']))
+        # Make sure color is an int array
+        for name, color in self.label_colors.items():
+            color_array = [int(c) for c in color.split(',')]
+            self.label_colors[name] = color_array
+
+        # Create a map from class id to name and color
+        self.class_id_to_name_color = {class_id: (class_name, self.label_colors[class_name]) 
+                                       for class_name, class_id in self.labels.items()}
