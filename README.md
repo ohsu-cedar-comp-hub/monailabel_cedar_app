@@ -7,6 +7,8 @@ The app for cedar-nvidia-pilot. It is developed based on https://github.com/Proj
 2. This app requires some code from the **CEDAR-NVIDIA-Pilot** repository. Clone the repo using the following link:  
    [CEDAR-NVIDIA-Pilot GitHub Repository](https://github.com/ohsu-cedar-comp-hub/CEDAR-NVIDIA-Pilot/tree/monai_label_app)  
    **Note:** Make sure to use the `monai_label_app` branch.  
+
+   **Note:** The code required from that repo has been copied into the inference folder at this project. Use the code here instead.
    
 3. After cloning the repo, navigate to the project folder using `cd`, and then install the package with:  
    ```bash
