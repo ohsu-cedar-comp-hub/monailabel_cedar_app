@@ -14,4 +14,5 @@ Fine-tuning/
 
 inference/build/
 inference/dist/
+inference/cedar_nvidia_pilot.egg-info/
 inference_test.py
