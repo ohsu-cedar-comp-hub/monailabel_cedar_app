@@ -1,0 +1,113 @@
+config:
+  description: "VISTA 2D segmentation pipeline"
+  arguments:
+    - name: "--distributed"
+      action: "store_true"
+      help: "start distributed training"
+    - name: "--world_size"
+      default: 1
+      type: int
+      help: "number of nodes for distributed training"
+    - name: "--rank"
+      default: 0
+      type: int
+      help: "node rank for distributed training"
+    - name: "--dist-url"
+      default: "tcp://127.0.0.1:23456"
+      type: str
+      help: "distributed url"
+    - name: "--dist-backend"
+      default: "nccl"
+      type: str
+      help: "distributed backend"
+    - name: "--workers"
+      default: 8
+      type: int
+      help: "number of workers"
+    - name: "--roi_z_iter"
+      default: 1
+      type: int
+      help: "roi size in z direction"
+    - name: "--out_channels"
+      default: 20
+      type: int
+      help: "number of output channels"
+    - name: "--data_dir"
+      default: "/dataset/dataset0/"
+      type: str
+      help: "dataset directory"
+    - name: "--json_list"
+      default: "dataset_0.json"
+      type: str
+      help: "dataset json file"
+    - name: "--fold"
+      default: 0
+      type: int
+      help: "fold"
+    - name: "--data_aug"
+      action: "store_true"
+      help: "using data augmentation in training"
+    - name: "--splitval"
+      default: 0
+      type: float
+      help: "if not zero, split the last portion to validation and validation to test"
+    - name: "--metric"
+      action: "store_true"
+      help: "only do metric computing based on logdir"
+    - name: "--sam_pretrain_ckpt"
+      type: str
+      default: null
+      help: "sam_pretrain_ckpt"
+    - name: "--sam_base_model"
+      type: str
+      default: "vit_b"
+      help: "sam_pretrain_ckpt"
+    - name: "--sam_image_size"
+      type: int
+      default: 1024
+      help: "sam input res"
+    - name: "--label_prompt"
+      action: "store_true"
+      help: "using class label prompt in training"
+    - name: "--point_prompt"
+      action: "store_true"
+      help: "using point prompt in training"
+    - name: "--max_points"
+      default: 8
+      type: int
+      help: "number of max point prompts"
+    - name: "--points_val_pos"
+      default: 1
+      type: int
+      help: "number of positive point prompts in evaluation"
+    - name: "--points_val_neg"
+      default: 0
+      type: int
+      help: "number of negative point prompts in evaluation"
+    - name: "--logdir"
+      default: "/mnt/3td1/ohsu_sam_results/sam"
+      type: str
+      help: "directory to save the eval results"
+    - name: "--ckpt"
+      default: "./runs/model_best.pt"
+      type: str
+      help: "model ckpts"
+    - name: "--save_infer"
+      action: "store_true"
+      help: "save inference results"
+    - name: "--patch_embed_3d"
+      action: "store_true"
+      help: "using 3d patch embedding layer"
+    - name: "--use_all_files_for_val"
+      action: "store_true"
+      help: "used in validating original SAM"
+    - name: "--enable_auto_branch"
+      action: "store_true"
+      help: "enable automatic prediction"
+    - name: "--seed"
+      default: 0
+      type: int
+      help: "seed"
+    - name: "--infer_only"
+      action: "store_true"
+      help: "only conduct inference and skip metric calculation"

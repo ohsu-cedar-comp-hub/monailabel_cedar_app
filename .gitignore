@@ -5,5 +5,13 @@ lib/configs/__pycache__/__init__.cpython-39.pyc
 **.pyc
 **.log
 **.pt
+**.vscode
 
 downloaded-datasets/
+
+.codegpt
+Fine-tuning/
+
+inference/build/
+inference/dist/
+inference_test.py

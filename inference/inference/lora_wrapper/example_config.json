@@ -1,0 +1,7 @@
+{
+    "trainable_model": 0,
+    "to_q": {"r": 8, "scale": 1, "trainable_scale": 0, "hard": 1},
+    "to_v": {"r": 8, "scale": 1, "trainable_scale": 0, "hard": 1},
+    "qkv_proj": {"r": 8, "scale": 1, "trainable_scale": 0, "hard": 1}
+}
+
