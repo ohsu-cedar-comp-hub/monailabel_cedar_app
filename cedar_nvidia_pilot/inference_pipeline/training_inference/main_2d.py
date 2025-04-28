@@ -35,11 +35,11 @@ from vista_2d.model import sam_model_registry
 warnings.filterwarnings("ignore", category=UserWarning, module='monai')
 warnings.filterwarnings("ignore", category=UserWarning, module='torch')
 warnings.filterwarnings("ignore", category=UserWarning, module='nibabel')
-parser = argparse.ArgumentParser(description="Swin UNETR segmentation pipeline")
+parser = argparse.ArgumentParser(description="")
 parser.add_argument("--checkpoint", default=None, help="start training from saved checkpoint")
-parser.add_argument("--logdir", default="vista2pt5d", type=str, help="directory to save the tensorboard logs")
-parser.add_argument("--data_dir", default="/dataset/dataset0/", type=str, help="dataset directory")
-parser.add_argument("--json_list", default="dataset_0.json", type=str, help="dataset json file")
+parser.add_argument("--logdir", default=None, type=str, help="directory to save the tensorboard logs")
+parser.add_argument("--data_dir", default=None, type=str, help="dataset directory")
+parser.add_argument("--json_list", default=None, type=str, help="dataset json file")
 parser.add_argument("--save_checkpoint", action="store_true", help="save checkpoint during training")
 parser.add_argument("--max_epochs", default=200, type=int, help="max number of training epochs")
 parser.add_argument("--batch_size", default=1, type=int, help="number of batch size")
@@ -65,7 +65,7 @@ parser.add_argument("--warmup_epochs", default=50, type=int, help="number of war
 parser.add_argument("--resume_ckpt", action="store_true", help="resume training from pretrained checkpoint")
 parser.add_argument("--clip", default=None, type=float, help="gradient clip")
 parser.add_argument("--seed", default=0, type=int, help="seed")
-parser.add_argument("--sam_pretrain_ckpt", type=str, default="/mnt/3td1/pretrain_sam_ckpt/sam_vit_b_01ec64.pth",
+parser.add_argument("--sam_pretrain_ckpt", type=str, default=None,
                     help="sam_pretrain_ckpt")
 parser.add_argument("--sam_base_model", type=str, default="vit_b",
                     help="sam_pretrain_ckpt")
@@ -74,7 +74,7 @@ parser.add_argument("--sam_image_size", type=int, default=1024,
 parser.add_argument("--actual_img_size", type=int, default=512,
                     help="the actual data res")
 parser.add_argument("--num_prompt", default=8, type=int, help="number of prompts for each training instance")
-parser.add_argument("--max_bk_prompt", default=4, type=int, help="number of prompts for each training instance")
+parser.add_argument("--max_bk_prompt", default=8, type=int, help="number of prompts for each training instance")
 parser.add_argument("--label_prompt", action="store_true", help="using class label prompt in training")
 parser.add_argument("--drop_label_prob", default=0.5, type=float, help="prob for dropping label prompt in training")
 parser.add_argument("--point_prompt", action="store_true", help="using point prompt in training")
@@ -102,6 +102,7 @@ parser.add_argument("--out_channels", default=20, type=int, help="number of outp
 parser.add_argument("--freeze_encoder", action="store_true", help="freeze image encoder")
 parser.add_argument("--use_lora", action="store_true", help="use lora for image encoder")
 parser.add_argument("--save_ckpt_every_val", action="store_true", help="save_ckpt_every_val")
+parser.add_argument("--class_names", default=None, help="class name list as string with commas separating")
 
 
 def start_tb(log_dir):

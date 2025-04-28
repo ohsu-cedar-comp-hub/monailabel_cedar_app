@@ -548,27 +548,7 @@ def run_training(
             metric = metric.tolist()
             metric_class = np.zeros(metric_dim)
             if torch.cuda.device_count() == 1 or dist.get_rank() == 0:
-                class_names = [
-                    "Gleason pattern 3",
-                    "Gleason pattern 4, cribriform glands",
-                    "Gleason pattern 4, poorly-formed glands",
-                    "Gleason pattern 4, fused glands",
-                    "Gleason pattern 4, glomeruloid glands",
-                    "Gleason pattern 5, single cells",
-                    "Gleason pattern 5, sheets",
-                    "Gleason pattern 5, cords",
-                    "Gleason pattern 5, solid nests",
-                    "Gleason pattern 5, necrosis",
-                    "Prostatic intraepithelial neoplasia",
-                    "Benign gland",
-                    "Glandular atrophy",
-                    "Nerve",
-                    "Vein / artery",
-                    "Chronic inflammation",
-                    "Background stroma",
-                    "Not segmented correctly",
-                    "Tissue processing artifact",
-                ]
+                class_names = args.class_names.split(",")
                 avg_metric = 0
                 valid = 0
                 for _c in range(metric_dim):
