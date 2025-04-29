@@ -12,7 +12,7 @@ The app for cedar-nvidia-pilot. It is developed based on https://github.com/Proj
 3. `cd` to the cedar_nvidia_pilot/monai_label_app folder, and then install the package with:  
    ```bash
    pip install -e .
-
+Test
 ### Start the App
 
 1. On **macOS** or **Linux**, run:  
