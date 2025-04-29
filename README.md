@@ -1,4 +1,4 @@
-This Python-based app provides inference and fine-tuning capabilities for [MiroSCOPE](https://github.com/ohsu-cedar-comp-hub/qupath_monaillabel_plugin/tree/main?tab=readme-ov-file), an AI-driven digital pathology platform for annotating functional tissue units (FTUs) based on QuPath.
+This Python-based app provides inference and fine-tuning capabilities for [MiroSCOPE](https://github.com/ohsu-cedar-comp-hub/qupath_monaillabel_plugin), an AI-driven digital pathology platform for annotating functional tissue units (FTUs) based on QuPath.
 
 It is developed based on the MONAI Label custom app guide:  
 https://github.com/Project-MONAI/MONAILabel/blob/main/sample-apps/README.md#creating-a-custom-app
