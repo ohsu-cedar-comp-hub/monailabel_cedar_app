@@ -19,3 +19,4 @@ opencv-python==4.8.0.74
 h5py
 torch==2.0.0
 torchvision==0.15.1
+imagecodecs

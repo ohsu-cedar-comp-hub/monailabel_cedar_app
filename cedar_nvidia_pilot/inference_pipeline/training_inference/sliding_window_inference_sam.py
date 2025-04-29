@@ -55,8 +55,8 @@ parser.add_argument("--dist-backend", default="nccl", type=str, help="distribute
 parser.add_argument("--workers", default=8, type=int, help="number of workers")
 parser.add_argument("--roi_z_iter", default=1, type=int, help="roi size in z direction")
 parser.add_argument("--out_channels", default=20, type=int, help="number of output channels")
-parser.add_argument("--data_dir", default="/dataset/dataset0/", type=str, help="dataset directory")
-parser.add_argument("--json_list", default="dataset_0.json", type=str, help="dataset json file")
+parser.add_argument("--data_dir", default=None, type=str, help="dataset directory")
+parser.add_argument("--json_list", default=None, type=str, help="dataset json file")
 parser.add_argument("--fold", default=0, type=int, help="fold")
 parser.add_argument("--data_aug", action="store_true", help="using data augmentation in training")
 parser.add_argument("--splitval", default=0, type=float,
@@ -73,9 +73,9 @@ parser.add_argument("--point_prompt", action="store_true", help="using point pro
 parser.add_argument("--max_points", default=8, type=int, help="number of max point prompts")
 parser.add_argument("--points_val_pos", default=1, type=int, help="number of positive point prompts in evaluation")
 parser.add_argument("--points_val_neg", default=0, type=int, help="number of negative point prompts in evaluation")
-parser.add_argument("--logdir", default="/mnt/3td1/ohsu_sam_results/sam",
+parser.add_argument("--logdir", default=None,
                     type=str, help="directory to save the eval results")
-parser.add_argument("--ckpt", default="./runs/model_best.pt", type=str,
+parser.add_argument("--ckpt", default=None, type=str,
                     help="model ckpts")
 parser.add_argument("--save_infer", action="store_true", help="save inference results")
 parser.add_argument("--patch_embed_3d", action="store_true", help="using 3d patch embedding layer")
@@ -84,7 +84,6 @@ parser.add_argument("--enable_auto_branch", action="store_true", help="enable au
 parser.add_argument("--seed", default=0, type=int, help="seed")
 parser.add_argument("--infer_only", action="store_true", help="only conduct inference and skip metric calculation")
 parser.add_argument("--window_size", type=int, help="window size for sliding window inference")
-
 
 
 
@@ -126,13 +125,18 @@ def main_worker(gpu, args):
                                                     enable_auto_branch=args.enable_auto_branch
                                                     )
 
-    train_files, val_files, test_files = split_data(args)
+    data_dir = args.data_dir
+    data_files = [f for f in os.listdir(data_dir) if not f.startswith('.')]
+
+    test_files = []
+    for file in data_files:
+        str_img = os.path.join(data_dir, file)
+        if (not os.path.exists(str_img)): continue
+        test_files.append({"image": str_img})
+
     # validation data
     if args.rank == 0:
         print('test files', len(test_files), [os.path.basename(_['image']).split('.')[0] for _ in test_files])
-
-    if args.use_all_files_for_val:
-        test_files = train_files + test_files
 
     test_files = partition_dataset(
         data=test_files, shuffle=False, num_partitions=world_size, even_divisible=False
@@ -152,7 +156,7 @@ def main_worker(gpu, args):
         data=test_files, transform=val_transforms
     )
     test_loader = DataLoader(
-        test_ds, batch_size=1, shuffle=False, num_workers=8, pin_memory=True
+        test_ds, batch_size=1, shuffle=False, num_workers=args.workers, pin_memory=True
     )
 
     device = f'cuda:{args.rank}'
@@ -240,7 +244,7 @@ def main_worker(gpu, args):
         dist.all_reduce(count_, op=torch.distributed.ReduceOp.SUM)
 
     if args.rank == 0:
-        f = open(os.path.join(args.logdir, f'metric_pp{args.points_val_pos}_np{args.points_val_neg}.json'), 'w')
+        #f = open(os.path.join(args.logdir, f'metric_pp{args.points_val_pos}_np{args.points_val_neg}.json'), 'w')
         metric = {}
         mean_dice_batch = dice_ / count_
 
@@ -249,10 +253,10 @@ def main_worker(gpu, args):
         metric['mean_dice'] = mean_dice_class
         metric['all_mean_dice'] = mean_dice_all
 
-        json.dump(metric, f)
-        f.close()
-        print('mean dice class:', mean_dice_class)
-        print('dice final', mean_dice_all)
+        #json.dump(metric, f)
+        #f.close()
+        #print('mean dice class:', mean_dice_class)
+        #print('dice final', mean_dice_all)
 
 def prepare_sam_test_input(inputs, labels, args, previous_pred=None):
     unique_labels = torch.tensor([i for i in range(0, args.out_channels)]).cuda(args.rank)
